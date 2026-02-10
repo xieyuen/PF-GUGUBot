@@ -1,12 +1,11 @@
 import asyncio
+import logging
 import re
 import traceback
-import logging
-
 from typing import Dict, List, Optional
 
-from gugubot.connector.basic_connector import BasicConnector, BoardcastInfo
 from gugubot.config.BotConfig import BotConfig
+from gugubot.connector.basic_connector import BasicConnector
 from gugubot.utils.types import ProcessedInfo
 
 
@@ -150,28 +149,28 @@ class ConnectorManager:
         """
         failures: Dict[str, Exception] = {}
         tasks = []
-        to_conectors = self.connectors
+        to_connectors = self.connectors
 
         # 使用 re.escape 将来源名按字面匹配，避免 source_name 中的正则特殊字符（如 [ ]）导致排除/包含失效
         if include is not None:
-            to_conectors = [
-                c for c in to_conectors if any(re.match(re.escape(p), c.source) for p in include)
+            to_connectors = [
+                c for c in to_connectors if any(re.match(re.escape(p), c.source) for p in include)
             ]
 
         if exclude is not None:
-            to_conectors = [
+            to_connectors = [
                 c
-                for c in to_conectors
+                for c in to_connectors
                 if not any(re.match(re.escape(p), c.source) for p in exclude)
             ]
 
-        connector_info = f"广播消息到连接器: {to_conectors}"
+        connector_info = f"广播消息到连接器: {to_connectors}"
         message_info = f"消息内容: {processed_info}"
         debug_msg = connector_info + "\n" + message_info
         self.logger.debug(debug_msg)
 
         # 创建所有发送任务
-        for connector in to_conectors:
+        for connector in to_connectors:
             task = asyncio.create_task(self._safe_send(connector, processed_info))
             tasks.append((connector, task))
 

@@ -3,16 +3,16 @@
 该模块提供玩家加入和离开时的广播通知功能。
 """
 
-import traceback
 import re
+import traceback
+from typing import Callable
 
-from typing import Optional, Callable
-from mcdreforged.api.types import PluginServerInterface, Info
+from mcdreforged.api.types import Info, PluginServerInterface
 
 from gugubot.builder import MessageBuilder
+from gugubot.config.BotConfig import BotConfig
 from gugubot.connector.connector_manager import ConnectorManager
 from gugubot.utils.types import ProcessedInfo
-from gugubot.config.BotConfig import BotConfig
 
 
 def create_on_player_join(

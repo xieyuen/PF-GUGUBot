@@ -3,7 +3,6 @@
 
 该模块提供了处理 Minecraft 游戏事件的功能，包括成就获得和玩家死亡事件的广播。
 """
-import asyncio
 from mcdreforged.api.types import PluginServerInterface
 
 from gugubot.builder import MessageBuilder

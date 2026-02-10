@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # +----------------------------------------------------------------------+
-import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
+from mcdreforged.api.types import PluginServerInterface
 
 from gugubot.config import BasicConfig, BotConfig
-from mcdreforged.api.types import PluginServerInterface
+
 
 # +----------------------------------------------------------------------+
 

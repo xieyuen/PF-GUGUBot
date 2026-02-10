@@ -2,45 +2,16 @@
 # +---------------------------------------------------------------------+
 from pathlib import Path
 
-# from gugubot.logic.bot_core import GUGUBotCore
-from gugubot.connector import (
-    ConnectorManager,
-    MCConnector,
-    QQWebSocketConnector,
-    TestConnector,
-    BridgeConnector,
-)
-from gugubot.logic.system import (
-    BanWordSystem,
-    BoundSystem,
-    BoundNoticeSystem,
-    EchoSystem,
-    ExecuteSystem,
-    GeneralHelpSystem,
-    KeyWordSystem,
-    StartupCommandSystem,
-    SystemManager,
-    WhitelistSystem,
-    StyleSystem,
-    TodoSystem,
-    PlayerListSystem,
-)
-from gugubot.logic.plugins import (
-    UnboundCheckSystem,
-    InactiveCheckSystem,
-    ActiveWhiteListSystem,
-    CrossBroadcastSystem,
-)
-from gugubot.config import BotConfig
-from gugubot.utils import (
-    check_plugin_version,
-    StyleManager,
-    migrate_config_v1_to_v2,
-    help_msg_register,
-)
+from mcdreforged.api.types import Info, PluginServerInterface
 
-from mcdreforged.api.types import PluginServerInterface, Info
-from mcdreforged.api.command import *
+from gugubot.config import BotConfig
+# from gugubot.logic.bot_core import GUGUBotCore
+from gugubot.connector import (BridgeConnector, ConnectorManager, MCConnector, QQWebSocketConnector, TestConnector)
+from gugubot.logic.plugins import (ActiveWhiteListSystem, CrossBroadcastSystem, InactiveCheckSystem, UnboundCheckSystem)
+from gugubot.logic.system import (BanWordSystem, BoundNoticeSystem, BoundSystem, EchoSystem, ExecuteSystem,
+                                  GeneralHelpSystem, KeyWordSystem, PlayerListSystem, StartupCommandSystem, StyleSystem,
+                                  SystemManager, TodoSystem, WhitelistSystem)
+from gugubot.utils import (StyleManager, check_plugin_version, help_msg_register, migrate_config_v1_to_v2)
 
 connector_manager: ConnectorManager = None
 mc_connector: MCConnector = None

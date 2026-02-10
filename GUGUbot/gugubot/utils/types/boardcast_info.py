@@ -9,7 +9,7 @@ from gugubot.utils.types.source import Source
 
 
 @dataclass
-class BoardcastInfo:
+class BroadcastInfo:
     """广播信息类，用于在系统间传递消息。
 
     Attributes

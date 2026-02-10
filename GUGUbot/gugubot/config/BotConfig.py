@@ -17,7 +17,7 @@ class BotConfig(BasicConfig):
 
     def addNewConfig(self, server):
         """Add new configs from latest version to current config"""
-        # read latest config file from MCDR package
+        # read the latest config file from MCDR package
         with server.open_bundled_file(
             "gugubot/config/defaults/default_config.yml"
         ) as file_handler:

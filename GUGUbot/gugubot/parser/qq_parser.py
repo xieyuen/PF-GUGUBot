@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 from gugubot.parser.basic_parser import BasicParser
 from gugubot.builder.qq_builder import ArrayHandler, CQHandler
-from gugubot.utils.types import BoardcastInfo, Source
+from gugubot.utils.types import BroadcastInfo, Source
 
 
 class QQParser(BasicParser):
@@ -30,7 +30,7 @@ class QQParser(BasicParser):
 
     def _extract_sender_from_template(self, text: str, template: str) -> Optional[str]:
         """从模板中提取发送者名字，模板如 "[{display_name}] {sender}: "
-        
+
         支持模板前面有额外前缀、后面有正文消息的情况
         """
         try:
@@ -106,7 +106,7 @@ class QQParser(BasicParser):
 
         return None
 
-    async def parse(self, raw_message: str) -> Optional[BoardcastInfo]:
+    async def parse(self, raw_message: str) -> Optional[BroadcastInfo]:
         """解析QQ消息。
 
         Parameters
@@ -116,7 +116,7 @@ class QQParser(BasicParser):
 
         Returns
         -------
-        Optional[BoardcastInfo]
+        Optional[BroadcastInfo]
             解析后的广播信息对象，如果是回调消息则返回None
         """
         try:
@@ -130,7 +130,7 @@ class QQParser(BasicParser):
             event_type = message_data.get("post_type", "")
             if event_type not in self.PROCESS_TYPE:
                 return None
-            
+
             if not self._is_valid_source(message_data, event_type):
                 return None
 
@@ -139,7 +139,7 @@ class QQParser(BasicParser):
                 self_id = message_data.get("self_id")
                 if self_id is not None:
                     self.connector.bot.self_id = self_id
-                
+
                 message = message_data.get("raw_message", "")
                 parsed_message = CQHandler.parse(message) if isinstance(message, str) else ArrayHandler.parse(message)
 
@@ -149,7 +149,7 @@ class QQParser(BasicParser):
                 sender = message_data.get("sender", {})
                 sender_name = sender.get("card") or sender.get("nickname")
                 sender_id = str(sender.get("user_id"))
-                
+
                 # 检查是否应该排除此用户的消息
                 if await self._should_exclude_user(sender_id, source_id, source_type):
                     self.logger.debug(f"已在connector层拦截排除用户 {sender_id} 的消息")
@@ -159,7 +159,7 @@ class QQParser(BasicParser):
                 receiver = await self._get_receiver_from_reply(parsed_message)
 
                 # 创建并处理QQ消息对象
-                boardcase_info = BoardcastInfo(
+                broadcast_info = BroadcastInfo(
                     event_type=event_type,
                     event_sub_type=source_type,
                     message=parsed_message,
@@ -177,7 +177,7 @@ class QQParser(BasicParser):
             else:
                 sub_type = message_data.get("request_type") if event_type == "request" else message_data.get("notice_type")
 
-                boardcase_info = BoardcastInfo(
+                broadcast_info = BroadcastInfo(
                     event_type=event_type,
                     event_sub_type=sub_type,
                     message=message_data,
@@ -187,8 +187,8 @@ class QQParser(BasicParser):
                     _source=Source(self.connector.source),  # 使用 Source 类追踪来源链
                     source_id=message_data.get("user_id"),
                 )
-            
-            return boardcase_info
+
+            return broadcast_info
 
         except Exception as e:
             error_msg = str(e) + "\n" + traceback.format_exc()
@@ -200,7 +200,7 @@ class QQParser(BasicParser):
         config = self.system_manager.config
         admin_ids = config.get_keys(["connector", "QQ", "permissions", "admin_ids"], [])
         admin_groups = config.get_keys(["connector", "QQ", "permissions", "admin_group_ids"], [])
-        
+
         if str(sender_id) in [str(i) for i in admin_ids + admin_groups]:
             return True
         return False
@@ -209,10 +209,10 @@ class QQParser(BasicParser):
         """检查是否是好友管理员"""
         if event_type != "message":
             return False
-        
+
         config = self.connector.config
         friend_is_admin = config.get_keys(["connector", "QQ", "permissions", "friend_is_admin"], False)
-        
+
         is_private_chat = message_data.get("message_type") == 'private'
 
         return friend_is_admin and is_private_chat
@@ -236,7 +236,7 @@ class QQParser(BasicParser):
 
     async def _should_exclude_user(self, user_id: str, source_id: str, source_type: str) -> bool:
         """检查用户是否应该被排除（完全忽略其消息）
-        
+
         Parameters
         ----------
         user_id : str
@@ -245,7 +245,7 @@ class QQParser(BasicParser):
             消息来源ID（群号或用户号）
         source_type : str
             消息来源类型（group 或 private）
-        
+
         Returns
         -------
         bool
@@ -256,7 +256,7 @@ class QQParser(BasicParser):
         if user_id in [str(exclude_id) for exclude_id in exclude_ids if exclude_id]:
             self.logger.debug(f"用户 {user_id} 在排除列表中，忽略消息")
             return True
-        
+
         return False
 
 

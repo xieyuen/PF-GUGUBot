@@ -20,7 +20,7 @@ def migrate_config_v1_to_v2(
         with open(config_path, "r", encoding="utf-8") as f:
             old_config = yaml.load(f)
     except Exception:
-        return  # Not a valid yaml or something, let normal init handle it
+        return  # Not a valid YAML or something, let normal init handle it
 
     # Check if it is v1 config
     # v1 has "admin_id" at root, v2 has "GUGUBot" at root
