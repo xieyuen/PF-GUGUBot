@@ -797,6 +797,10 @@ class BoundSystem(BasicSystem):
 
     async def _handle_list(self, boardcast_info: BoardcastInfo) -> bool:
         """处理显示绑定列表命令"""
+        # 管理员查看所有人的绑定列表
+        if boardcast_info.is_admin:
+            return await self._handle_list_all(boardcast_info)
+
         player = self.player_manager.get_player(boardcast_info.sender_id)
         if not player:
             await self.reply(
@@ -823,6 +827,46 @@ class BoundSystem(BasicSystem):
         await self.reply(
             boardcast_info,
             [MessageBuilder.text(self.get_tr("bind_list", player_list=player_list))],
+        )
+        return True
+
+    async def _handle_list_all(self, boardcast_info: BoardcastInfo) -> bool:
+        """管理员查看所有玩家的绑定列表"""
+        all_players = self.player_manager.get_all_players()
+        if not all_players:
+            await self.reply(
+                boardcast_info, [MessageBuilder.text("当前没有任何绑定信息")]
+            )
+            return True
+
+        reply_lines = [f"绑定列表 (共{len(all_players)}人):"]
+        for i, player in enumerate(all_players, 1):
+            # 收集玩家名
+            java_names = [str(name) for name in player.java_name]
+            bedrock_names = [str(name) for name in player.bedrock_name]
+
+            # 收集平台账号
+            account_parts = []
+            for platform, accounts in player.accounts.items():
+                account_ids = ", ".join(str(a) for a in accounts)
+                account_parts.append(f"{platform}: {account_ids}")
+
+            # 拼接每行信息
+            line = f"{i}. "
+            name_parts = []
+            if java_names:
+                name_parts.append("Java: " + ", ".join(java_names))
+            if bedrock_names:
+                name_parts.append("基岩: " + ", ".join(bedrock_names))
+            line += " | ".join(name_parts) if name_parts else "无游戏名"
+
+            if account_parts:
+                line += f" [{' | '.join(account_parts)}]"
+
+            reply_lines.append(line)
+
+        await self.reply(
+            boardcast_info, [MessageBuilder.text("\n".join(reply_lines))]
         )
         return True
 
