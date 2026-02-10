@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import copy
+import hashlib
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from mcdreforged.api.types import PluginServerInterface
 
@@ -25,6 +27,8 @@ class KeyWordSystem(BasicConfig, BasicSystem):
         data_path.parent.mkdir(parents=True, exist_ok=True)
         BasicConfig.__init__(self, data_path)
         self.adding_request_dict: Dict[str, str] = {}
+        self.image_cache_dir = data_path.parent / "key_words_images"
+        self.image_cache_dir.mkdir(parents=True, exist_ok=True)
 
     def initialize(self) -> None:
         """初始化系统，加载配置等"""
@@ -73,7 +77,16 @@ class KeyWordSystem(BasicConfig, BasicSystem):
         if boardcast_info.sender_id in self.adding_request_dict:
             command = self.adding_request_dict[boardcast_info.sender_id]
             del self.adding_request_dict[boardcast_info.sender_id]
-            self[command] = boardcast_info.message
+            cache_image = self.config.get_keys(
+                ["system", "key_words", "cache_image"], False
+            )
+            if cache_image:
+                message = await self._cache_images(
+                    copy.deepcopy(boardcast_info.message)
+                )
+            else:
+                message = boardcast_info.message
+            self[command] = message
             self.save()
             await self.reply(
                 boardcast_info, [MessageBuilder.text(self.get_tr("add_success"))]
@@ -211,6 +224,75 @@ class KeyWordSystem(BasicConfig, BasicSystem):
 
         self.system_manager.server.schedule_task(task)
 
+    def _download_image(self, url: str) -> Optional[Path]:
+        """下载图片并返回本地缓存路径（同步，在线程池中运行）。"""
+        import requests as req
+
+        try:
+            url_hash = hashlib.md5(url.encode()).hexdigest()
+            response = req.get(url, timeout=15)
+            response.raise_for_status()
+
+            content_type = response.headers.get("Content-Type", "")
+            if "jpeg" in content_type or "jpg" in content_type:
+                ext = ".jpg"
+            elif "gif" in content_type:
+                ext = ".gif"
+            elif "webp" in content_type:
+                ext = ".webp"
+            else:
+                ext = ".png"
+
+            filepath = (self.image_cache_dir / f"{url_hash}{ext}").resolve()
+            filepath.write_bytes(response.content)
+            return filepath
+        except Exception as e:
+            self.logger.warning(f"缓存图片失败: {e}")
+            return None
+
+    async def _cache_images(self, message: list) -> list:
+        """下载并缓存消息中的图片，将 url 替换为本地文件路径。"""
+        loop = asyncio.get_running_loop()
+        for segment in message:
+            if segment.get("type") not in ("image", "mface"):
+                continue
+            data = segment.get("data", {})
+            # 优先取 url，其次取 file（部分框架把链接放在 file 里）
+            download_url = data.get("url", "")
+            if not download_url or not download_url.startswith("http"):
+                download_url = data.get("file", "")
+                if not download_url or not download_url.startswith("http"):
+                    continue
+
+            filepath = await loop.run_in_executor(
+                None, self._download_image, download_url
+            )
+            if filepath:
+                data["file"] = str(filepath)
+                # 移除即将过期的 url，保留原始地址供调试
+                if "url" in data:
+                    data["original_url"] = data.pop("url")
+        return message
+
+    def _cleanup_cached_images(self, message: list) -> None:
+        """清理关键词关联的缓存图片文件。"""
+        if not isinstance(message, list):
+            return
+        for segment in message:
+            if not isinstance(segment, dict):
+                continue
+            if segment.get("type") not in ("image", "mface"):
+                continue
+            filepath_str = segment.get("data", {}).get("file", "")
+            if not filepath_str:
+                continue
+            filepath = Path(filepath_str)
+            try:
+                if filepath.parent.resolve() == self.image_cache_dir.resolve():
+                    filepath.unlink(missing_ok=True)
+            except Exception:
+                pass
+
     async def _handle_remove(self, boardcast_info: BoardcastInfo) -> bool:
         """处理删除关键词命令"""
         command = boardcast_info.message[0].get("data", {}).get("text", "")
@@ -227,6 +309,11 @@ class KeyWordSystem(BasicConfig, BasicSystem):
             )
             return True
 
+        cache_image = self.config.get_keys(
+            ["system", "key_words", "cache_image"], False
+        )
+        if cache_image:
+            self._cleanup_cached_images(self[command])
         del self[command]
         self.save()
         await self.reply(
