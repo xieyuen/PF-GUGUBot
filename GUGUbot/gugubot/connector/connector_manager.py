@@ -127,7 +127,7 @@ class ConnectorManager:
 
     async def broadcast_processed_info(
             self,
-            message: ProcessedInfo,
+            processed_info: ProcessedInfo,
             include: Optional[List[str]] = None,
             exclude: Optional[List[str]] = None,
     ) -> Dict[str, Exception]:
@@ -135,7 +135,7 @@ class ConnectorManager:
 
         Parameters
         ----------
-        message : Any
+        processed_info : Any
             要广播的消息
         include : Optional[List[str]]
             仅向这些源的连接器发送消息（如果为None，则发送给所有连接器）
@@ -165,13 +165,13 @@ class ConnectorManager:
             ]
 
         connector_info = f"广播消息到连接器: {to_connectors}"
-        message_info = f"消息内容: {message}"
+        message_info = f"消息内容: {processed_info}"
         debug_msg = connector_info + "\n" + message_info
         self.logger.debug(debug_msg)
 
         # 创建所有发送任务
         for connector in to_connectors:
-            task = asyncio.create_task(self._safe_send(connector, message))
+            task = asyncio.create_task(self._safe_send(connector, processed_info))
             tasks.append((connector, task))
 
         # 等待所有任务完成
@@ -184,7 +184,7 @@ class ConnectorManager:
         return failures
 
     async def _safe_send(
-            self, connector: BasicConnector, message: ProcessedInfo
+            self, connector: BasicConnector, processed_info: ProcessedInfo
     ) -> None:
         """安全地向单个连接器发送消息。
 
@@ -192,7 +192,7 @@ class ConnectorManager:
         ----------
         connector : BasicConnector
             目标连接器
-        message : Any
+        processed_info : Any
             要发送的消息
 
         Raises
@@ -201,7 +201,7 @@ class ConnectorManager:
             如果发送失败
         """
         try:
-            await connector.send_message(message)
+            await connector.send_message(processed_info)
         except Exception as e:
             error_msg = str(e) + "\n" + traceback.format_exc()
             self.logger.error(f"发送消息到 {connector.source} 失败: {error_msg}")

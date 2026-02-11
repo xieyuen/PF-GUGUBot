@@ -103,7 +103,7 @@ class MCConnector(BasicConnector):
             if qq_connector := self.connector_manager.get_connector(qq_source):
                 bot_id = getattr(getattr(qq_connector, "bot", None), "self_id", None)
 
-            Rtext_connect = self.builder.array_to_RText(
+            rtext_content = self.builder.array_to_RText(
                 message, sender_id=sender_id,
                 low_game_version=is_low_version, chat_image=use_chat_image, image_previewer=use_image_previewer,
                 player_manager=player_manager, is_admin=is_admin, bot_id=bot_id
@@ -128,7 +128,7 @@ class MCConnector(BasicConnector):
             custom_group_name = self.config.get_keys(["connector", "QQ", "permissions", "custom_group_name"], {})
             source = custom_group_name.get(source_id, source)
 
-            main_content = self.builder.build(Rtext_connect,
+            main_content = self.builder.build(rtext_content,
                                               group_name=source,
                                               group_id=source_id,
                                               sender=sender,
