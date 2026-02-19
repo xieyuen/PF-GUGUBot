@@ -134,7 +134,7 @@ class PlayerManager(BasicConfig):
         Returns
         -------
         Optional[Player]
-            找到的玩家对象，如果未找到则返回None
+            找到的玩家对象，如果未找到则返回 None
 
         Examples
         --------
