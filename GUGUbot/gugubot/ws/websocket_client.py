@@ -86,22 +86,23 @@ class WebSocketClient:
 
         Parameters
         ----------
-        reconnect : int
-            重连间隔时间（秒），默认5秒
-        ping_interval : int
-            心跳间隔时间（秒），默认20秒
-        ping_timeout : int
-            心跳超时时间（秒），默认10秒
-        use_ssl : bool
-            是否使用SSL/TLS加密连接
-        verify : bool
-            是否验证SSL证书
-        ca_certs : Optional[str]
-            CA证书文件路径
-        extra_sslopt : Optional[Dict[str, Any]]
-            额外的SSL选项
-        thread_name : str
+        reconnect : int, optional
+            重连间隔时间（秒），默认 ``5`` 秒
+        ping_interval : int, optional
+            心跳间隔时间（秒），默认 ``20`` 秒
+        ping_timeout : int, optional
+            心跳超时时间（秒），默认 ``10`` 秒
+        use_ssl : bool, optional
+            是否使用 SSL/TLS 加密连接
+        verify : bool, optional
+            是否验证 SSL 证书
+        ca_certs : str, optional
+            CA 证书文件路径
+        extra_sslopt : Dict[str, Any], optional
+            额外的 SSL 选项
+        thread_name : str, optional
             监听线程名称
+        suppress_origin : bool, optional
         """
         self.logger.debug(f"正在连接到WebSocket服务器: {self.url}")
 
