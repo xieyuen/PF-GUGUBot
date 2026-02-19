@@ -5,6 +5,9 @@ on:
     paths:
       - GUGUbot/gugubot/config/defaults/default_config.yml
 
+permissions:
+  contents: write
+
 jobs:
   sync-readme:
     runs-on: ubuntu-latest
