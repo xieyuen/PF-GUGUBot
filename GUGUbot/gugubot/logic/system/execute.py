@@ -125,8 +125,7 @@ class ExecuteSystem(BasicSystem):
 
         if content.startswith(f"{command_prefix}{execute_cmd}"):
             # 权限检查：必须是管理员才能执行命令
-            if not self.is_command(broadcast_info) or \
-                    (not await self._is_admin(broadcast_info.sender_id) and not broadcast_info.is_admin):
+            if not broadcast_info.is_admin and not await self._is_admin(broadcast_info.sender_id):
                 return False
 
             # 提取命令内容
@@ -164,8 +163,7 @@ class ExecuteSystem(BasicSystem):
 
         elif content.startswith(f"{command_prefix}{mcdr_cmd}"):
             # 权限检查：必须是管理员才能执行命令
-            if not self.is_command(broadcast_info) or \
-                    (not await self._is_admin(broadcast_info.sender_id) and not broadcast_info.is_admin):
+            if not broadcast_info.is_admin and not await self._is_admin(broadcast_info.sender_id):
                 return False
 
             # 提取命令内容
