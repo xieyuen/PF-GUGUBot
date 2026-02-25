@@ -68,6 +68,8 @@ class ExecuteSystem(BasicSystem):
 
         for pattern in ignore_patterns:
             try:
+                if not pattern:
+                    continue
                 if re.match(pattern, command):
                     return True
             except re.error:
@@ -122,6 +124,11 @@ class ExecuteSystem(BasicSystem):
         help_cmd = self.get_tr("gugubot.system.general_help.help_command", global_key=True)
 
         if content.startswith(f"{command_prefix}{execute_cmd}"):
+            # 权限检查：必须是管理员才能执行命令
+            if not self.is_command(broadcast_info) or \
+                    (not await self._is_admin(broadcast_info.sender_id) and not broadcast_info.is_admin):
+                return False
+
             # 提取命令内容
             command = content.replace(f"{command_prefix}{execute_cmd}", "", 1).strip()
             if not command:
@@ -152,14 +159,15 @@ class ExecuteSystem(BasicSystem):
                     use_mcdr=False
                 )
 
-            if not self.is_command(broadcast_info) or \
-                    (not await self._is_admin(broadcast_info.sender_id) and not broadcast_info.is_admin):
-                return False
-
             # 执行 MC 原生命令
             return await self._handle_execute_command(command, broadcast_info, use_mcdr=False)
 
         elif content.startswith(f"{command_prefix}{mcdr_cmd}"):
+            # 权限检查：必须是管理员才能执行命令
+            if not self.is_command(broadcast_info) or \
+                    (not await self._is_admin(broadcast_info.sender_id) and not broadcast_info.is_admin):
+                return False
+
             # 提取命令内容
             command = content.replace(f"{command_prefix}{mcdr_cmd}", "", 1).strip()
             if not command:
@@ -186,10 +194,6 @@ class ExecuteSystem(BasicSystem):
                     target_server=target_server,
                     use_mcdr=True
                 )
-
-            if not self.is_command(broadcast_info) or \
-                    (not await self._is_admin(broadcast_info.sender_id) and not broadcast_info.is_admin):
-                return False
 
             # 执行 MCDR 命令
             return await self._handle_execute_command(command, broadcast_info, use_mcdr=True)
