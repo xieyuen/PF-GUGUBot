@@ -80,7 +80,7 @@ class StyleManager:
 
         # 从配置中读取上次使用的风格
         if config:
-            self.current_style = config.get_keys(["GUGUBot", "style"], None)
+            self.current_style = config.get_keys(["style", "current_style"], None)
 
     def _ensure_style_directory(self) -> None:
         """确保风格目录存在，并复制默认样本文件（仅复制不存在的文件）"""
@@ -357,7 +357,6 @@ class StyleManager:
     def _save_current_style(self) -> None:
         """保存当前风格到配置文件"""
         if self.config:
-            gugubot_config = self.config.get("GUGUBot", {})
-            gugubot_config["style"] = self.current_style
-            self.config["GUGUBot"] = gugubot_config
-            self.config.save()
+            style_config = self.config.get("style", {})
+            style_config["current_style"] = self.current_style
+            self.config["style"] = style_config
