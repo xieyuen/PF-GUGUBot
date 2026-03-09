@@ -104,9 +104,9 @@ class MCConnector(BasicConnector):
                 bot_id = getattr(getattr(qq_connector, "bot", None), "self_id", None)
 
             rtext_content = self.builder.array_to_rtext(
-                message, sender_id=sender_id,
+                message,
                 low_game_version=is_low_version, chat_image=use_chat_image, image_previewer=use_image_previewer,
-                player_manager=player_manager, is_admin=is_admin, bot_id=bot_id
+                player_manager=player_manager, bot_id=bot_id
             )
 
             if player_manager:
