@@ -37,7 +37,7 @@ class Bot:
         self.max_wait_time = max_wait_time if 0 < max_wait_time <= 9 else 9
         self.function_return = {}
         self.pending_requests = {}
-        self.self_id = None  # 机器人自己的QQ号
+        self.self_id = None  # bot's own QQ ID
 
     @staticmethod
     def format_request(action: str, params: dict = None):
@@ -106,7 +106,6 @@ class QQWebSocketConnector(BasicConnector):
         self.server = server
         self.ws_client = None
 
-        # 存储日志前缀
         connector_basic_name = self.server.tr("gugubot.connector.name")
         self.log_prefix = f"[{connector_basic_name}{self.source}]"
 
@@ -158,7 +157,6 @@ class QQWebSocketConnector(BasicConnector):
             f"{self.log_prefix} {self.server.tr('gugubot.connector.QQ.try_connect', url=self.url)}"
         )
 
-        # 使用WebSocketFactory创建客户端
         self.ws_client = WebSocketFactory.create_client(
             url=self.url,
             token=self.token,
@@ -169,11 +167,11 @@ class QQWebSocketConnector(BasicConnector):
             logger=self.logger,
         )
 
-        # 连接到服务器（禁用 pingpong）
+        # Disable ping/pong; the OneBot server does not require it.
         self.ws_client.connect(
             reconnect=self.reconnect,
-            ping_interval=0,  # 禁用 pingpong
-            ping_timeout=0,  # 禁用 pingpong
+            ping_interval=0,
+            ping_timeout=0,
             use_ssl=self.use_ssl,
             verify=self.verify,
             ca_certs=self.ca_certs,
@@ -256,7 +254,6 @@ class QQWebSocketConnector(BasicConnector):
         result = []
         for item in message:
             if isinstance(item, dict) and item.get("type") == "text":
-                # 复制 item 以避免修改原始数据
                 new_item = item.copy()
                 new_data = item.get("data", {}).copy()
                 if "text" in new_data:
@@ -267,7 +264,7 @@ class QQWebSocketConnector(BasicConnector):
                 result.append(item)
         return result
 
-    # 非文本消息类型的虚拟长度
+    # Estimated lengths for non-text segment types
     _TYPE_LENGTHS = {"image": 100, "default": 20}
 
     def _get_item_length(self, item: dict) -> int:
@@ -302,7 +299,7 @@ class QQWebSocketConnector(BasicConnector):
                 current_len += item_len
                 continue
 
-            # 处理文本：可能需要拆分
+            # Text segment — may need splitting across parts
             text = item.get("data", {}).get("text", "")
             while text:
                 space = max_length - current_len
@@ -315,7 +312,7 @@ class QQWebSocketConnector(BasicConnector):
                     current_len += len(text)
                     break
 
-                # 优先在换行符处分割
+                # Prefer splitting at a newline boundary
                 chunk = text[:space]
                 if (pos := chunk.rfind("\n")) > space // 2:
                     chunk = text[: pos + 1]
@@ -331,7 +328,7 @@ class QQWebSocketConnector(BasicConnector):
         if not self.enable:
             return
 
-        # 优先使用 forward_group_ids，如果未配置则回退到 group_ids（保持向后兼容）
+        # Prefer forward_group_ids; fall back to group_ids for backwards compat
         forward_group_ids = self.config.get_keys(
             ["connector", "QQ", "permissions", "forward_group_ids"], []
         )
@@ -345,23 +342,20 @@ class QQWebSocketConnector(BasicConnector):
         target = processed_info.target or forward_group_target
 
         message = processed_info.processed_message
-        source = processed_info.source  # Source 对象
+        source = processed_info.source
 
-        # 去除消息中的 Minecraft 颜色代码
         message = self._strip_color_codes_from_message(message)
 
-        # 检查原始来源是否不是 QQ（需要添加来源前缀）
+        # Prepend a source prefix when the message originates outside QQ
         if not source.is_from("QQ") and source.origin and processed_info.sender:
-            # 从config中获取聊天模板列表
             chat_templates = self.config.get_keys(
                 ["connector", "QQ", "chat_templates"], []
             )
 
-            # 如果配置了模板，根据权重随机选择一个；否则使用默认格式
+            # Pick a chat template (weighted random) or fall back to default
             if chat_templates and isinstance(chat_templates, list):
-                # 检查是否为字典格式（带权重）
                 if isinstance(chat_templates[0], dict):
-                    # 字典格式: {"模板字符串": 权重值}
+                    # Format like: [{"template_string": weight}, ...]
                     templates = []
                     weights = []
                     for item in chat_templates:
@@ -370,41 +364,40 @@ class QQWebSocketConnector(BasicConnector):
                             weights.append(
                                 weight if isinstance(weight, (int, float)) else 1
                             )
-                    # 使用权重随机选择
+                    # Weighted random selection
                     template = random.choices(templates, weights=weights, k=1)[0]
                 else:
-                    # 旧格式：转换为新格式并保存
+                    # Legacy format: auto-migrate to weighted dict format
                     new_templates = [{tmpl: 1} for tmpl in chat_templates]
                     self.config["connector"]["QQ"]["chat_templates"] = new_templates
-                    self.config.save()  # 手动保存配置
+                    self.config.save()
                     if self.logger:
                         self.logger.info(
                             "已自动将 chat_templates 从旧格式更新为新格式（默认权重为1）"
                         )
-                    # 从转换后的新格式中随机选择
+                    # Select from the (pre-migration) plain string list
                     template = random.choice(chat_templates)
 
-                # 使用模板格式化消息，{display_name}对应source，{sender}对应processed_info.sender
+                # {display_name} → source origin, {sender} → sender name
                 formatted_text = template.format(
                     display_name=source.origin, sender=processed_info.sender
                 )
             else:
-                # 默认格式（向后兼容）
+                # Default format (backwards compatible)
                 formatted_text = f"[{source.origin}] {processed_info.sender}: "
 
             source_message = CQHandler.parse(formatted_text)
             message = source_message + message
 
-        # 如果是玩家进出服务器消息，不显示发送者
+        # Join/leave messages have an empty sender — only show the source tag
         elif not source.is_from("QQ") and source.origin and processed_info.sender == "":
             message = CQHandler.parse(f"[{source.origin}] ") + message
 
-        # 获取消息最大长度配置，默认为 2000
+        # Max message length before splitting (configurable, default 2000)
         max_message_length = self.config.get_keys(
             ["connector", "QQ", "max_message_length"], 2000
         )
 
-        # 分割消息（如果太长）
         message_parts = self._split_message(message, max_length=max_message_length)
 
         for target_id, target_type in target.items():
@@ -423,7 +416,7 @@ class QQWebSocketConnector(BasicConnector):
                         group_id=int(target_type), user_id=int(target_id), message=part
                     )
 
-                # 如果消息被分割成多段，每段之间稍微延迟，避免发送过快
+                # Throttle multi-part sends to avoid rate limiting
                 if len(message_parts) > 1:
                     random_time = random.uniform(0.5, 1.5)
                     await asyncio.sleep(random_time)
@@ -469,23 +462,23 @@ class QQWebSocketConnector(BasicConnector):
 
         try:
 
-            # 先快速检查是否是 API 响应（echo），直接在当前线程处理
+            # Fast path: handle API responses (echo) directly in this thread
             try:
                 message_data = json.loads(raw_message)
                 echo = message_data.get("echo")
-                if echo and echo in self.bot.pending_requests:
-                    # API 响应，直接存储到 function_return（线程安全）
-                    self.bot.function_return[echo] = message_data
+                if echo:
+                    if echo in self.bot.pending_requests:
+                        # API response — store for the awaiting coroutine
+                        self.bot.function_return[echo] = message_data
                     return
             except Exception:
                 pass
 
-            # 对于事件消息，调度到 MCDR 主线程的事件循环
-            # 使用 server.schedule_task 确保在正确的事件循环中执行
+            # Event messages are scheduled on the MCDR event loop
             self.server.schedule_task(self.parser(self).process_message(raw_message))
 
         except Exception as e:
-            # 使用翻译条目并包含堆栈信息
+            # Log with translation key and include the full traceback
             error_msg = str(e) + "\n" + traceback.format_exc()
             self.logger.error(
                 self.server.tr(

@@ -129,7 +129,7 @@ class ConnectorManager:
         except Exception as e:
             error_msg = str(e) + "\n" + traceback.format_exc()
             self.logger.error(f"断开 {connector.source} 失败: {error_msg}")
-            # 仍然从列表中移除，即使断开连接失败
+            # Still remove from the list even if disconnect failed
             self.connectors.remove(connector)
             raise
 
@@ -162,7 +162,8 @@ class ConnectorManager:
         tasks = []
         to_connectors = self.connectors
 
-        # 使用 re.escape 将来源名按字面匹配，避免 source_name 中的正则特殊字符（如 [ ]）导致排除/包含失效
+        # Use re.escape for literal matching so special chars in source names
+        # (e.g. brackets) don't break include/exclude filters.
         if include is not None:
             to_connectors = [
                 c for c in to_connectors if any(re.match(re.escape(p), c.source) for p in include)
@@ -180,12 +181,10 @@ class ConnectorManager:
         debug_msg = connector_info + "\n" + message_info
         self.logger.debug(debug_msg)
 
-        # 创建所有发送任务
         for connector in to_connectors:
             task = asyncio.create_task(self._safe_send(connector, processed_info))
             tasks.append((connector, task))
 
-        # 等待所有任务完成
         for connector, task in tasks:
             try:
                 await task
@@ -230,12 +229,10 @@ class ConnectorManager:
         failures: Dict[str, Exception] = {}
         tasks = []
 
-        # 创建所有断开连接的任务
-        for connector in self.connectors[:]:  # 使用切片创建副本，因为我们会修改列表
+        for connector in self.connectors[:]:  # iterate over a copy; remove_connector mutates the list
             task = asyncio.create_task(self.remove_connector(connector))
             tasks.append((connector, task))
 
-        # 等待所有任务完成
         for connector, task in tasks:
             try:
                 await task

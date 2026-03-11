@@ -35,8 +35,8 @@ class TestConnector(BasicConnector):
         super().__init__(source="test", config=config)
         self.server = server
         self.logger = logger or server.logger
+        # Reuse show_message_in_console as the master toggle for TestConnector
         self.enable = config.get_keys(["GUGUBot", "show_message_in_console"], True)
-        # TestConnector 使用 show_message_in_console 配置作为开关
         self.enable_send = self.enable
         self.enable_receive = self.enable
 

@@ -47,7 +47,6 @@ class MCConnector(BasicConnector):
         self.server = server
         self.logger = logger or server.logger
 
-        # 存储日志前缀
         connector_basic_name = self.server.tr("gugubot.connector.name")
         self.log_prefix = f"[{connector_basic_name}{self.source}]"
 
@@ -76,7 +75,7 @@ class MCConnector(BasicConnector):
         self.builder: McMessageBuilder
 
         message = processed_info.processed_message
-        source = processed_info.source.origin  # 获取原始来源作为显示名称
+        source = processed_info.source.origin
         source_id = processed_info.source_id
         sender = processed_info.sender
         sender_id = processed_info.sender_id
@@ -94,7 +93,7 @@ class MCConnector(BasicConnector):
             player_manager = getattr(bound_system, "player_manager", None)
             is_admin = await player_manager.is_admin(sender_id) if player_manager else False
 
-            # 获取机器人QQ号，用于过滤对机器人的@
+            # Retrieve the bot's QQ ID so @-mentions targeting the bot can be filtered
             bot_id = None
             qq_source = self.config.get_keys(["connector", "QQ", "source_name"], "QQ")
             if qq_connector := self.connector_manager.get_connector(qq_source):
@@ -109,7 +108,7 @@ class MCConnector(BasicConnector):
             if player_manager:
                 sender_player = player_manager.get_player(str(sender_id))
                 if sender_player:
-                    # 优先使用 Java 或基岩版的第一个名字
+                    # Prefer the first Java name, then Bedrock name, then display name
                     sender = (sender_player.java_name[0] if sender_player.java_name
                               else sender_player.bedrock_name[0] if sender_player.bedrock_name
                     else sender_player.name) or sender
@@ -117,7 +116,6 @@ class MCConnector(BasicConnector):
                 if receiver:
                     receiver_player = player_manager.get_player(str(receiver))
                     if receiver_player:
-                        # 优先使用 Java 或基岩版的第一个名字
                         receiver = (receiver_player.java_name[0] if receiver_player.java_name
                                     else receiver_player.bedrock_name[0] if receiver_player.bedrock_name
                         else receiver_player.name) or receiver

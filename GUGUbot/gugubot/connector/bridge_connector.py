@@ -28,21 +28,17 @@ class BridgeConnector(BasicConnector):
         super().__init__(source=source_name, parser=MCParser, config=config)
         self.server = server
 
-        # 存储日志前缀和唯一标识
         connector_basic_name = self.server.tr("gugubot.connector.name")
         self.log_prefix = f"[{connector_basic_name}{self.source}]"
 
-        # 添加连接计数器和状态标志
         self._connect_count = 0
         self._client_id = f"{source_name}_{int(time.time() * 1000)}"
-        self._is_reconnecting = False  # 防止多个重连线程同时运行
+        self._is_reconnecting = False  # guards against concurrent reconnect threads
 
-        # 判断是否为服务器模式
         self.is_main_server = config.get_keys(
             ["connector", "minecraft_bridge", "is_main_server"], True
         )
 
-        # 获取配置
         self.reconnect = config.get_keys(
             ["connector", "minecraft_bridge", "connection", "reconnect"], 5
         )
@@ -65,7 +61,6 @@ class BridgeConnector(BasicConnector):
             ["connector", "minecraft_bridge", "connection", "sslopt"], {}
         )
 
-        # 创建WebSocket实例
         self.ws_server = None
         self.ws_client = None
 
@@ -80,7 +75,6 @@ class BridgeConnector(BasicConnector):
         """Start the WebSocket bridge server in a daemon thread."""
         self.logger.info(f"{self.log_prefix} 正在启动桥接服务器")
 
-        # 创建服务器并传递回调函数
         self.ws_server = WebSocketFactory.create_bridge_server(
             self.config,
             on_message=self._handle_server_message,
@@ -89,14 +83,12 @@ class BridgeConnector(BasicConnector):
             logger=self.logger,
         )
 
-        # 启动服务器（守护线程）
         self.ws_server.start(daemon=True)
 
         self.logger.info(f"{self.log_prefix} 桥接服务器就绪 ~")
 
     def _connect_to_server(self) -> None:
         """Connect to the main bridge server as a client."""
-        # 清理旧连接
         if self.ws_client:
             try:
                 if self.ws_client.is_connected():
@@ -113,7 +105,6 @@ class BridgeConnector(BasicConnector):
         else:
             self.logger.info(f"{self.log_prefix} 正在连接到桥接服务器")
 
-        # 创建客户端
         self.ws_client = WebSocketFactory.create_bridge_client(
             self.config,
             on_message=self._handle_client_message,
@@ -123,7 +114,6 @@ class BridgeConnector(BasicConnector):
             logger=self.logger,
         )
 
-        # 连接到服务器
         self.ws_client.connect(
             reconnect=self.reconnect,
             ping_interval=self.ping_interval,
@@ -164,14 +154,14 @@ class BridgeConnector(BasicConnector):
     def _on_client_close(self, ws, status_code: int, reason: str) -> None:
         """Handle the client WebSocket connection closing; schedule reconnect."""
 
-        # 检查是否是当前活动的连接
+        # Ignore stale close events from previous connections
         if self.ws_client and self.ws_client.ws and self.ws_client.ws != ws:
             return
 
         reason_text = f"({reason})" if reason else ""
         self.logger.info(f"{self.log_prefix} 连接已断开 {reason_text}")
 
-        # 实现持续重连
+        # Schedule a persistent reconnect loop in a background thread
         if self.reconnect > 0 and self.enable and not self._is_reconnecting:
             self._is_reconnecting = True
             self.logger.info(f"{self.log_prefix} 将在 {self.reconnect} 秒后重连...")
@@ -215,7 +205,7 @@ class BridgeConnector(BasicConnector):
         try:
             message_data = json.loads(message) if isinstance(message, str) else message
 
-            # 广播给其他客户端
+            # Relay to other connected clients
             if self.ws_server and self.ws_server.get_client_count() > 1:
                 message_data["bridge_source"] = client.get("address", ["unknown", 0])[0]
                 sender_id = message_data.get("sender_id", None)
@@ -225,7 +215,6 @@ class BridgeConnector(BasicConnector):
                     if other_client["id"] != client["id"]:
                         self.ws_server.send_message(other_client, message_data)
 
-            # 处理消息并传递给本地系统
             asyncio.run(self._process_bridge_message(message_data))
 
         except Exception as e:
@@ -242,7 +231,6 @@ class BridgeConnector(BasicConnector):
             ):
                 return
 
-            # 处理消息并传递给本地系统
             asyncio.run(self._process_bridge_message(message_data))
 
         except Exception as e:
@@ -255,10 +243,8 @@ class BridgeConnector(BasicConnector):
             if target and self.source not in target and len(target) == 1:
                 return
 
-            # 从消息数据中恢复 Source 对象
             source_data = message_data.get("source")
             source = Source.from_any(source_data)
-            # 添加当前 connector 作为接收来源
             source.add(self.source)
 
             processed_info = BroadcastInfo(
@@ -292,7 +278,7 @@ class BridgeConnector(BasicConnector):
         if not self.enable:
             return
 
-        # 将 Source 序列化为列表以便通过 WebSocket 传输
+        # Serialize Source as a list for WebSocket transport
         source_list = processed_info.source.to_list() if processed_info.source else []
 
         message_data = {
@@ -303,7 +289,7 @@ class BridgeConnector(BasicConnector):
             "sender_id": processed_info.sender_id,
             "event_sub_type": processed_info.event_sub_type,
             "receiver": processed_info.receiver,
-            "source": source_list,  # 使用列表格式传输完整的来源链
+            "source": source_list,
             "source_id": processed_info.source_id,
             "raw": processed_info.raw,
             "processed_message": processed_info.processed_message,
@@ -316,12 +302,12 @@ class BridgeConnector(BasicConnector):
         }
 
         if self.is_main_server:
-            # 服务器模式：广播给所有连接的客户端
+            # Server mode: broadcast to all connected clients
             if self.ws_server and self.ws_server.is_running():
                 count = self.ws_server.broadcast(message_data)
                 self.logger.debug(f"{self.log_prefix} 广播消息给 {count} 个客户端")
         else:
-            # 客户端模式：发送给服务器
+            # Client mode: send to the server
             if self.ws_client and self.ws_client.is_connected():
                 if self.ws_client.send(message_data):
                     self.logger.debug(f"{self.log_prefix} 发送消息到服务器")
