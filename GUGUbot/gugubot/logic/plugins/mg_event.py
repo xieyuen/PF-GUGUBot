@@ -7,7 +7,7 @@ from mcdreforged.api.types import PluginServerInterface
 
 from gugubot.builder import MessageBuilder
 from gugubot.config import BotConfig
-from gugubot.connector.connector_manager import ConnectorManager
+from gugubot.connector import ConnectorManager
 from gugubot.utils.types import ProcessedInfo
 
 
