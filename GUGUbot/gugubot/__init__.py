@@ -223,7 +223,7 @@ async def on_info(server: PluginServerInterface, info: Info) -> None:
 
 async def on_user_info(server: PluginServerInterface, info: Info) -> None:
     if mc_connector is not None:
-        await mc_connector.on_message(server, info)
+        await mc_connector.on_message(info)
 
 
 # 卸载

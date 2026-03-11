@@ -8,7 +8,7 @@ from mcdreforged.api.rtext import RAction, RColor, RText, RTextBase
 from packaging import version
 
 from gugubot.builder.basic_builder import BasicBuilder
-from gugubot.constant.qq_emoji_map import qq_emoji_map
+from gugubot.constant import qq_emoji_map
 from gugubot.utils.player_manager import PlayerManager
 
 
@@ -51,7 +51,8 @@ class McMessageBuilder(BasicBuilder):
         - If the MC is a low version, replace the emoji with [emoji].
         - If the image uses ChatImage plugin to preview, convert the image text to CICode.
         - If the image uses ImagePreview plugin to preview, set the image hover text and
-          click event to ImagePreview format. If the image link exists, set the image hover text and click event to open link.
+          click event to ImagePreview format. If the image link exists, 
+          set the image hover text and click event to open link.
         - If @ is for all group members, do not create hover text and click event.
         - If the player is not bound, use the player ID as the player name.
         """
