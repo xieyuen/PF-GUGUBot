@@ -16,17 +16,17 @@ from gugubot.ws import WebSocketFactory
 
 
 def strip_minecraft_color_codes(text: str) -> str:
-    """去除 Minecraft 颜色/格式代码（如 §a, §l, §r 等）
+    """Strip Minecraft colour / formatting codes (e.g. ``§a``, ``§l``).
 
     Parameters
     ----------
     text : str
-        可能包含 Minecraft 颜色代码的文本
+        Text that may contain Minecraft colour codes.
 
     Returns
     -------
     str
-        去除颜色代码后的文本
+        The text with all colour codes removed.
     """
     return re.sub(r"§[0-9a-fk-or]", "", text, flags=re.IGNORECASE)
 
@@ -100,7 +100,7 @@ class Bot:
 
 
 class QQWebSocketConnector(BasicConnector):
-    def __init__(self, server, config: BotConfig = None):
+    def __init__(self, server, config: Optional[BotConfig] = None):
         source_name = config.get_keys(["connector", "QQ", "source_name"], "QQ")
         super().__init__(source=source_name, parser=QQParser, config=config)
         self.server = server
@@ -153,7 +153,7 @@ class QQWebSocketConnector(BasicConnector):
         return url
 
     async def connect(self) -> None:
-        """建立到QQ WebSocket服务器的连接"""
+        """Establish the WebSocket connection to the QQ (OneBot) server."""
         self.logger.info(
             f"{self.log_prefix} {self.server.tr('gugubot.connector.QQ.try_connect', url=self.url)}"
         )
@@ -191,14 +191,14 @@ class QQWebSocketConnector(BasicConnector):
         )
 
     def _on_error(self, _: Any, error: Exception) -> None:
-        """处理WebSocket错误
+        """Handle a WebSocket error.
 
         Parameters
         ----------
         _ : Any
-            WebSocket实例（未使用）
+            WebSocket instance (unused).
         error : Exception
-            发生的错误
+            The error that occurred.
         """
         self.logger.error(
             f"{self.log_prefix} {self.server.tr('gugubot.connector.QQ.error_connect', error=error)}"
@@ -207,16 +207,16 @@ class QQWebSocketConnector(BasicConnector):
     def _on_close(
         self, _: Any, status_code: Optional[int], reason: Optional[str]
     ) -> None:
-        """处理WebSocket连接关闭
+        """Handle WebSocket connection close.
 
         Parameters
         ----------
         _ : Any
-            WebSocket实例（未使用）
-        status_code : Optional[int]
-            关闭状态码
-        reason : Optional[str]
-            关闭原因
+            WebSocket instance (unused).
+        status_code : int or None
+            The close status code.
+        reason : str or None
+            The close reason.
         """
         close_info = self.server.tr(
             "gugubot.connector.QQ.close_connect", status_code=status_code, reason=reason
@@ -224,7 +224,7 @@ class QQWebSocketConnector(BasicConnector):
         self.logger.debug(f"{self.log_prefix} {close_info}")
 
     async def _send_message(self, message: Any) -> None:
-        """向QQ WebSocket服务器发送消息"""
+        """Send a raw message through the WebSocket connection."""
         if self.ws_client and self.ws_client.is_connected():
             if self.ws_client.send(message):
                 self.logger.debug(
@@ -240,17 +240,18 @@ class QQWebSocketConnector(BasicConnector):
             self.logger.warning(self.server.tr("gugubot.connector.QQ.retry_connect"))
 
     def _strip_color_codes_from_message(self, message: list) -> list:
-        """去除消息列表中的 Minecraft 颜色代码
+        """Strip Minecraft colour codes from text segments in a message list.
 
         Parameters
         ----------
         message : list
-            消息列表，每个元素是包含 'type' 和 'data' 的字典
+            Message segment list; each element is a dict with ``type`` and
+            ``data`` keys.
 
         Returns
         -------
         list
-            处理后的消息列表
+            A new list with colour codes removed from ``text`` segments.
         """
         result = []
         for item in message:
@@ -270,13 +271,13 @@ class QQWebSocketConnector(BasicConnector):
     _TYPE_LENGTHS = {"image": 100, "default": 20}
 
     def _get_item_length(self, item: dict) -> int:
-        """获取单个消息元素的长度"""
+        """Return the estimated character length of a single message segment."""
         if item.get("type") == "text":
             return len(item.get("data", {}).get("text", ""))
         return self._TYPE_LENGTHS.get(item.get("type"), self._TYPE_LENGTHS["default"])
 
     def _split_message(self, message: list, max_length: int = 2000) -> list[list]:
-        """将消息分割成多个部分，每部分不超过指定长度"""
+        """Split a message into parts that each fit within *max_length*."""
         total = sum(self._get_item_length(m) for m in message if isinstance(m, dict))
         if total <= max_length:
             return [message]
@@ -357,11 +358,7 @@ class QQWebSocketConnector(BasicConnector):
             )
 
             # 如果配置了模板，根据权重随机选择一个；否则使用默认格式
-            if (
-                chat_templates
-                and isinstance(chat_templates, list)
-                and len(chat_templates) > 0
-            ):
+            if chat_templates and isinstance(chat_templates, list):
                 # 检查是否为字典格式（带权重）
                 if isinstance(chat_templates[0], dict):
                     # 字典格式: {"模板字符串": 权重值}
@@ -411,7 +408,6 @@ class QQWebSocketConnector(BasicConnector):
         message_parts = self._split_message(message, max_length=max_message_length)
 
         for target_id, target_type in target.items():
-
             if not target_id.isdigit():
                 continue
 
@@ -433,7 +429,7 @@ class QQWebSocketConnector(BasicConnector):
                     await asyncio.sleep(random_time)
 
     async def disconnect(self) -> None:
-        """断开与QQ WebSocket服务器的连接"""
+        """Disconnect from the QQ WebSocket server."""
         try:
             if self.ws_client:
                 self.ws_client.disconnect(timeout=5)
@@ -448,23 +444,25 @@ class QQWebSocketConnector(BasicConnector):
             raise
 
     def on_message(self, _, raw_message: str) -> None:
-        """处理并分发WebSocket消息。
+        """Dispatch an incoming WebSocket message.
 
-        处理流程:
-        1. 将原始JSON字符串解析为消息数据
-        2. 如果是回调消息（包含echo），存储到function_return
-        3. 如果是事件消息：
-           - 更新机器人ID（如果包含）
-           - 创建并处理QQ信息对象
+        Processing flow:
+
+        1. Parse the raw JSON string.
+        2. If it is an API response (contains ``echo``), store it in
+           ``function_return`` for the waiting coroutine.
+        3. Otherwise schedule the event for processing on the MCDR event
+           loop.
 
         Parameters
         ----------
         raw_message : str
-            WebSocket接收到的JSON格式消息
+            JSON-encoded message received from the WebSocket.
 
         Notes
         -----
-        WebSocket 回调运行在独立线程中，需要将异步任务正确调度到事件循环
+        WebSocket callbacks run in a separate thread; async work is
+        dispatched via ``server.schedule_task``.
         """
         if not self.enable:
             return
@@ -479,7 +477,7 @@ class QQWebSocketConnector(BasicConnector):
                     # API 响应，直接存储到 function_return（线程安全）
                     self.bot.function_return[echo] = message_data
                     return
-            except:
+            except Exception:
                 pass
 
             # 对于事件消息，调度到 MCDR 主线程的事件循环

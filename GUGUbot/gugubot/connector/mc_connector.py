@@ -12,30 +12,38 @@ from gugubot.utils.types import ProcessedInfo
 
 
 class MCConnector(BasicConnector):
-    """Minecraft服务器连接器。
-
-    用于与Minecraft服务器进行消息交互。
+    """Connector for a Minecraft server via MCDR.
 
     Attributes
     ----------
     server : Any
-        MCDR服务器实例
+        MCDR server instance.
     logger : logging.Logger
-        日志记录器
+        Logger instance.
     """
 
-    def __init__(self, server: Any, config: BotConfig = None, logger: Optional[logging.Logger] = None) -> None:
-        """初始化Minecraft连接器。
+    def __init__(
+        self,
+        server: Any,
+        config: Optional[BotConfig] = None,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
+        """Initialize the Minecraft connector.
 
         Parameters
         ----------
         server : Any
-            MCDR服务器实例
+            MCDR server instance.
         logger : logging.Logger, optional
-            日志记录器实例，如果未提供则创建新的
+            Logger instance.  Falls back to ``server.logger`` when omitted.
         """
-        source_name = config.get_keys(["connector", "minecraft", "source_name"], "Minecraft")
-        super().__init__(source=source_name, parser=MCParser, builder=McMessageBuilder, config=config)
+        source_name = config.get_keys(
+            ["connector", "minecraft", "source_name"], "Minecraft"
+        )
+        super().__init__(
+            source=source_name, parser=MCParser,
+            builder=McMessageBuilder, config=config,
+        )
         self.server = server
         self.logger = logger or server.logger
 
@@ -44,32 +52,20 @@ class MCConnector(BasicConnector):
         self.log_prefix = f"[{connector_basic_name}{self.source}]"
 
     async def connect(self) -> None:
-        """连接到Minecraft服务器。
-
-        由于MCDR已经处理了服务器连接，此方法不需要执行任何操作。
-        """
+        """Establish the connection (no-op since MCDR manages the lifecycle)."""
         self.logger.info(f"{self.log_prefix} 就绪 ~")
 
     async def disconnect(self) -> None:
-        """断开与Minecraft服务器的连接。
-
-        由于MCDR负责服务器连接的生命周期，此方法不需要执行任何操作。
-        """
+        """Tear down the connection (no-op since MCDR manages the lifecycle)."""
         self.logger.info(f"{self.log_prefix} 已断开 ~")
 
     async def send_message(self, processed_info: ProcessedInfo, **kwargs) -> None:
-        """向Minecraft服务器发送消息。
+        """Build and broadcast a message to the Minecraft server chat.
 
         Parameters
         ----------
-        processed_info : Any
-            要发送的消息。如果是字符串，直接发送；
-            如果是dict，应包含"content"键。
-
-        Raises
-        ------
-        ValueError
-            当消息格式无效时
+        processed_info : ProcessedInfo
+            The processed message to send.
         """
         if not self.enable:
             return
@@ -94,7 +90,8 @@ class MCConnector(BasicConnector):
             game_version = game_version.lower() if game_version else ""
             is_low_version = self.builder.is_low_game_version(game_version)
 
-            player_manager = getattr(self.connector_manager.system_manager.get_system("bound"), "player_manager", None)
+            bound_system = self.connector_manager.system_manager.get_system("bound")
+            player_manager = getattr(bound_system, "player_manager", None)
             is_admin = await player_manager.is_admin(sender_id) if player_manager else False
 
             # 获取机器人QQ号，用于过滤对机器人的@
@@ -143,14 +140,14 @@ class MCConnector(BasicConnector):
             raise
 
     async def on_message(self, server: PluginServerInterface, info: Info) -> None:
-        """处理从Minecraft服务器接收的消息。
+        """Handle an incoming Minecraft chat message.
 
         Parameters
         ----------
         server : PluginServerInterface
-            MCDR插件服务器接口实例
+            MCDR plugin server interface.
         info : Info
-            接收到的信息对象
+            The received message information object.
         """
         try:
             if not self.enable:
@@ -168,7 +165,7 @@ class MCConnector(BasicConnector):
             raise
 
     async def _is_admin(self, sender_id) -> bool:
-        """检查是否是管理员"""
+        """Return whether *sender_id* is an admin."""
         bound_system = self.connector_manager.system_manager.get_system("bound")
 
         if not bound_system:

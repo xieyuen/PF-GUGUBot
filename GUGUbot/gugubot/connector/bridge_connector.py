@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 import threading
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from gugubot.config import BotConfig
 from gugubot.connector.basic_connector import BasicConnector
@@ -12,14 +12,16 @@ from gugubot.ws import WebSocketFactory
 
 
 class BridgeConnector(BasicConnector):
-    """桥接连接器，支持服务器模式和客户端模式
+    """Bridge connector supporting both server and client modes.
 
-    根据配置中的is_main_server决定运行模式：
-    - True: 启动WebSocket服务器，等待其他服务器连接
-    - False: 作为客户端连接到主服务器
+    The operating mode is determined by the ``is_main_server`` config flag:
+
+    * ``True`` -- start a WebSocket server and wait for other servers to
+      connect.
+    * ``False`` -- connect to the main server as a client.
     """
 
-    def __init__(self, server, config: BotConfig = None):
+    def __init__(self, server, config: Optional[BotConfig] = None):
         source_name = config.get_keys(
             ["connector", "minecraft_bridge", "source_name"], "Bridge"
         )
@@ -68,14 +70,14 @@ class BridgeConnector(BasicConnector):
         self.ws_client = None
 
     async def connect(self) -> None:
-        """建立连接"""
+        """Establish the bridge connection (server or client, per config)."""
         if self.is_main_server and self.enable:
             self._start_server()
         elif not self.is_main_server and self.enable:
             self._connect_to_server()
 
     def _start_server(self) -> None:
-        """启动WebSocket服务器"""
+        """Start the WebSocket bridge server in a daemon thread."""
         self.logger.info(f"{self.log_prefix} 正在启动桥接服务器")
 
         # 创建服务器并传递回调函数
@@ -93,13 +95,13 @@ class BridgeConnector(BasicConnector):
         self.logger.info(f"{self.log_prefix} 桥接服务器就绪 ~")
 
     def _connect_to_server(self) -> None:
-        """连接到主服务器"""
+        """Connect to the main bridge server as a client."""
         # 清理旧连接
         if self.ws_client:
             try:
                 if self.ws_client.is_connected():
                     self.ws_client.disconnect(timeout=1)
-            except:
+            except Exception:
                 pass
 
         self._connect_count += 1
@@ -134,7 +136,7 @@ class BridgeConnector(BasicConnector):
         )
 
     def _on_client_connect(self, client: Dict, server: Any) -> None:
-        """新客户端连接到服务器时"""
+        """Handle a new client connecting to the bridge server."""
         client_address = client.get("address") if client else "unknown"
         client_count = self.ws_server.get_client_count() if self.ws_server else 0
         self.logger.info(
@@ -142,7 +144,7 @@ class BridgeConnector(BasicConnector):
         )
 
     def _on_client_disconnect(self, client: Dict, server: Any) -> None:
-        """客户端从服务器断开时"""
+        """Handle a client disconnecting from the bridge server."""
         client_address = client.get("address") if client else "unknown"
         client_count = self.ws_server.get_client_count() if self.ws_server else 0
         self.logger.info(
@@ -150,17 +152,17 @@ class BridgeConnector(BasicConnector):
         )
 
     def _on_client_open(self, ws) -> None:
-        """客户端连接建立时"""
+        """Handle the client WebSocket connection being established."""
         self.logger.info(f"{self.log_prefix} 连接成功 ~")
 
     def _on_client_error(self, ws, error: Exception) -> None:
-        """客户端连接错误时"""
+        """Handle a client WebSocket connection error."""
         self.logger.error(
             f"{self.log_prefix} 连接错误: {type(error).__name__} - {error}"
         )
 
     def _on_client_close(self, ws, status_code: int, reason: str) -> None:
-        """客户端连接关闭时"""
+        """Handle the client WebSocket connection closing; schedule reconnect."""
 
         # 检查是否是当前活动的连接
         if self.ws_client and self.ws_client.ws and self.ws_client.ws != ws:
@@ -209,7 +211,7 @@ class BridgeConnector(BasicConnector):
             ).start()
 
     def _handle_server_message(self, client: Dict, server: Any, message: str) -> None:
-        """处理服务器端接收到的消息"""
+        """Process a message received on the server side and relay it."""
         try:
             message_data = json.loads(message) if isinstance(message, str) else message
 
@@ -230,7 +232,7 @@ class BridgeConnector(BasicConnector):
             self.logger.error(f"{self.log_prefix} 消息处理失败: {e}")
 
     def _handle_client_message(self, ws, message: str) -> None:
-        """处理客户端接收到的消息"""
+        """Process a message received on the client side."""
         try:
             message_data = json.loads(message) if isinstance(message, str) else message
 
@@ -247,7 +249,7 @@ class BridgeConnector(BasicConnector):
             self.logger.error(f"{self.log_prefix} 消息处理失败: {e}")
 
     async def _process_bridge_message(self, message_data: Dict) -> None:
-        """处理桥接消息"""
+        """Reconstruct a ``BroadcastInfo`` from bridge data and dispatch it."""
         try:
             target = message_data.get("target", {}) or {}
             if target and self.source not in target and len(target) == 1:
@@ -286,7 +288,7 @@ class BridgeConnector(BasicConnector):
     async def send_message(
         self, processed_info: ProcessedInfo, *args, **kwargs
     ) -> None:
-        """发送消息"""
+        """Serialize and send a message over the bridge."""
         if not self.enable:
             return
 
@@ -327,7 +329,7 @@ class BridgeConnector(BasicConnector):
                     self.logger.warning(f"{self.log_prefix} 发送消息失败")
 
     async def disconnect(self) -> None:
-        """断开连接"""
+        """Disconnect the bridge (server or client)."""
         try:
             self.enable = False
 
@@ -343,7 +345,7 @@ class BridgeConnector(BasicConnector):
             self.logger.warning(f"{self.log_prefix} 断开连接时出错: {e}")
 
     async def on_message(self, raw: Any) -> BroadcastInfo:
-        """处理接收到的消息"""
+        """Handle an incoming raw message via the parser."""
         if not self.enable:
             return None
 
@@ -352,7 +354,7 @@ class BridgeConnector(BasicConnector):
         return None
 
     async def _is_admin(self, sender_id) -> bool:
-        """检查是否是管理员"""
+        """Return whether *sender_id* is an admin."""
         bound_system = self.connector_manager.system_manager.get_system("bound")
 
         if not bound_system:
